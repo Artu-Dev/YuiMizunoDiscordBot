@@ -1,9 +1,8 @@
 import { reduceChars } from "../database.js";
 
 export const limitChar = async (message) => {
-  const userId = message.author.id;
   const text = message.content;
-  
+  const userId = message.author.id;
   
   const textSize = text.length;
   const newValue = reduceChars(userId, textSize);
@@ -14,7 +13,7 @@ export const limitChar = async (message) => {
   }
 
   if (newValue <= 0) {
-    await message.reply(`⚠️!${message.author.username} Você não tem mais caracteres!⚠️`);
+    await message.reply(`⚠️!${message.author.displayName} Você não tem mais caracteres!⚠️`);
     await message.delete();
     return;
   }

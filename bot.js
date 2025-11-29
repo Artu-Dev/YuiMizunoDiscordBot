@@ -1,5 +1,5 @@
 import { Client, GatewayIntentBits } from "discord.js";
-import { readdirSync, existsSync, mkdirSync } from "fs";
+import { readdirSync } from "fs";
 import dotenv from "dotenv";
 import path from "path";
 import Config from "./config.js";

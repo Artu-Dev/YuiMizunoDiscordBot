@@ -1,27 +1,30 @@
-import Config from "../config.js";
-import { intializeDbBot, dbBot } from "../database.js";
+import {
+  intializeDbBot,
+  dbBot,
+  getChannels,
+  saveMessageContext,
+  getOrCreateUser,
+} from "../database.js";
 import { handleAchievements } from "../functions/achievements.js";
 import { generateAiRes } from "../functions/generateRes.js";
 import { limitChar } from "../functions/limitChar.js";
 import { sayInCall } from "../functions/sayInCall.js";
+import { parseMessage } from "../functions/utils.js";
 
 const name = "messageCreate";
 await intializeDbBot();
+const prefix = dbBot.data.configs.prefix;
 
 const execute = async (message, client) => {
   if (message.author.bot) return;
-  if (!dbBot.data.channels.includes(message.channel.id)) return;
+  const { guildId, userId, channelId, displayName, text, randomInt, isMentioned } = parseMessage(client, message);
 
-  const text = message.content;
-  const randomInt = Math.floor(Math.random() * 10) + 1;
-  const isMentioned = message.mentions.has(client.user);
-
-  if (text.startsWith(Config.PREFIX)) {
-    const args = text.slice(Config.PREFIX.length).trim().split(/ +/);
+  if (text.startsWith(prefix)) {
+    const args = text.slice(prefix.length).trim().split(/ +/);
     const cmdName = args.shift().toLowerCase();
     const command = client.commands.get(cmdName);
-    // const command = await client.commands.get(text.slice(Config.PREFIX.length).split(" ")[0]);
-    if(command) {
+
+    if (command) {
       try {
         command.run(client, message);
         return;
@@ -29,21 +32,32 @@ const execute = async (message, client) => {
         console.error(error);
       }
     }
-    return;
   }
 
+  const channels = getChannels(guildId);
+  if (!channels.includes(channelId)) return;
 
-  if ((typeof message.content === "string" && randomInt === 2) || isMentioned) {
+  getOrCreateUser(userId, displayName, guildId);
+
+  saveMessageContext(channelId, guildId, displayName, text);
+
+
+  if ((typeof text === "string" && randomInt === 1) || isMentioned) {
     message.channel.sendTyping();
-    const aiResponse = await generateAiRes(message)
-    await message.reply(aiResponse);
+    const aiResponse = await generateAiRes(message);
+    try {
+      await message.reply(aiResponse);
+    } catch {
+      await message.channel.send(aiResponse);
+    }
 
-    sayInCall(message, aiResponse);
+    if (dbBot.data.configs.speakMessage) {
+      sayInCall(message, aiResponse);
+    }
   }
-
 
   handleAchievements(message);
-  
+
   limitChar(message);
 };
 

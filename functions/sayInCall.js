@@ -5,7 +5,8 @@ import { Readable } from "stream";
 import { joinCall } from "../functions/voice.js";
 import { AudioPlayerStatus, createAudioPlayer, createAudioResource } from "@discordjs/voice";
 import { unlinkSync } from "fs";
-import { dbBot, intializeDbBot } from "../database.js";
+import { dbBot } from "../database.js";
+import { createAudioFileFromText } from "./createTTS.js";
 config();
 
 const elevenlabs = new ElevenLabsClient({
@@ -13,7 +14,7 @@ const elevenlabs = new ElevenLabsClient({
 });
 
 
-const createAudioFileFromText = async (text) => {
+const createAudioFileTTSElevenLabs = async (text) => {
   return new Promise(async (resolve, reject) => {
     try {
 
@@ -69,6 +70,7 @@ export async function sayInCall(message, responseText) {
 
   let tratedText = fixText(responseText);
 
+  // const audio = await createAudioFileTTSElevenLabs(tratedText);
   const audio = await createAudioFileFromText(tratedText);
 
   const player = createAudioPlayer();

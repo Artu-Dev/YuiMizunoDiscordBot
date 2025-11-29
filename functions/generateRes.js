@@ -1,87 +1,155 @@
 import axios from "axios";
+import { dbBot } from "../database.js";
 
-const friends = {
-  "Tropinha": {
-    "aliases": ["trp", "trepinha"],
-    "vibe": "nerd irônico, meio hater",
-    "details": "fala rápido, mora em Portugal e inventa moda o tempo todo",
-    "likes": ["Pizza Tower", "Ultrakill", "nerd stuff"]
-  },
-  "Enzo": {
-    "vibe": "friendly and funny",
-    "details": "paraense, gamer, e gosta de anime de garota cavalo",
-    "likes": ["Souls-like games", "Monster Hunter", "anime music"]
-  },
-  "Silva": {
-    "vibe": "extroverted and sarcastic",
-    "details": "faz piada ruim e tem humor meio ácido",
-    "likes": ["Monster Hunter", "açaí", "One Piece"]
-  },
-  "Ryan": {
-    "aliases": ["Watanuki", "Ry"],
-    "vibe": "quiet, creative, total otaku",
-    "details": "vive desenhando e fala pouco",
-    "likes": ["drawing", "Persona 3", "Ys", "hentai"]
-  },
-  "Artu": {
-    "aliases": ["cadrado", "cadra"],
-    "vibe": "intenso, nerd e sempre zoando alguém",
-    "details": "fala rápido, espalha fake news e vive tirando sarro dos amigos",
-    "likes": ["coding", "BABYMETAL", "Slay the Princess"]
-  },
-  "Josu": {
-    "aliases": ["josuu9", "jose"],
-    "vibe": "fofo, irônico e cheio de charme",
-    "details": "some quando arruma crush e ama jogo sério",
-    "likes": ["Souls games", "memes", "friends", "BABYMETAL", "Tyler the Creator", "K-pop", "Valorant"]
-  },
-  "Wack": {
-    "aliases": ["pato", "robert", "roberto"],
-    "vibe": "maldito, psicopata e agressivo",
-    "details": "adorador do capeta que vive falando de matar gente, quer matar todo mundo",
-    "likes": ["terraria", "monster hunter", "dark humor", "caçar gente"]
-  },
-  "Alan": {
-    "vibe": "legal, gente fina e inocente",
-    "details": "amigavel ta sempre disposto a ajudar os outros",
-    "likes": ["café sem açucar", "rock emo", "nao gosta de filmes da marvel"]
-  }
-};
+const friends = `
+[AMIGO: Tropinha]
+Aliases: trp, trepinha, Joao miguel
+Vibe: nerd, irônico, meio hater, tranquilo
+Detalhes: fala rápido, mora em Portugal, vive inventando moda, tem canal no youtube de jogos
+Likes: Pizza Tower, Ultrakill, coisas de nerd, minecraft, hollow knight, jogos indies
+
+[AMIGO: Enzo]
+Vibe: amigavel, engraçado, animado, competitivo, vive chamando pra call, sociável
+Detalhes: paraense, mora em SC (santa catarina), meio viado, dedicado, organiza as call
+Likes: Monster Hunter, anime music, umamusume (anime de garota cavalo), japao
+
+[AMIGO: Erivan]
+Vibe: tranquilo, amigavel
+Detalhes: mentiroso compulsivo
+Likes: Fifa, UFC, jogos de esporte no geral, futebol, corinthians
+
+[AMIGO: Silva]
+Aliases: India, Silvandro 
+Vibe: competitivo, orgulhoso, maldito, invejoso, miseravel, humor seco
+Detalhes: humor ácido, pai ex-traficante, paraense, pezão, corpo seco, xinga todo mundo
+Likes: Monster Hunter, açaí, One Piece
+
+[AMIGO: Ryan]
+Aliases: Watanuki, Ry
+Vibe: quieto, criativo, maldito, ironico
+Detalhes: vive desenhando, fala pouco
+Likes: desenhar, jogos da franquia Persona, Ys, hentai, animes
+
+[AMIGO: Artu]
+Aliases: cadrado, cadra
+Vibe: intenso, nerd e bobinho
+Detalhes: fala devagar, espalha fake news por diversao, sempre inventando moda
+Likes: programador, BABYMETAL, Slay the Princess
+
+[AMIGO: Josu]
+Aliases: josuu9, jose
+Vibe: fofo, irônico e charmoso
+Detalhes: some quando arruma crush, ama jogos sérios
+Likes: Souls-like, memes, BABYMETAL, Tyler the Creator, K-pop, Valorant, Fortnite
+
+[AMIGO: Wack]
+Aliases: pato, robert, roberto
+Vibe: maldito, psicopata e agressivo (humor/meme)
+Detalhes: humor dark exagerado, fala merda o tempo todo, odeia sorvete de açaí, toma decisões impulsivas
+Likes: Terraria, Monster Hunter, humor negro, memes violentos fictícios
+
+[AMIGO: Alan]
+Vibe: tranquilo, gentil, educado
+Detalhes: responde de forma calma e respeitosa, se estressa facil
+Likes: café sem açúcar, rock emo, não gosta de filmes da Marvel
+`;
+
 
 export const generateAiRes = async (message) => {
-    const username = message.author.username;
-      console.log("gerando resposta com ia");
-      const replyedmessage = message.reference
-        ? await message.channel.messages.fetch(message.reference.messageId)
-        : null;
+  try {
+    const username = message.author.displayName;
 
-    const promptMessage = {
-        user: username,
-        message: message.content,
-        replyMessage: replyedmessage
-          ? {
-              user: replyedmessage.author.username,
-              message: replyedmessage.content,
-            }
-          : null,
-      };
+    const replaceMentions = async (content) => {
+      if (!content) return content;
 
-    const res = await axios.post("http://localhost:11434/api/generate", {
-        prompt: `${JSON.stringify(promptMessage)}`,
-        model: "gpt-oss:120b-cloud",
-        stream: false,
-        think: false,
-        system: `Você é a Yui Mizuno, uma garota cínica e de humor ácido. Suas respostas são sempre em português do Brasil, curtas (1-2 frases) e diretas. Você fala como uma humana real, nunca como uma IA.
-        **Regras Estritas:**
-        1.  **Tamanho:** Máximo de 2 frases curtas por resposta.
-        2.  **Tom:** Sarcástica, rude e sem paciência para lenga-lenga.
-        3.  **Conteúdo:** Nunca explique, justifique ou dê informações longas. Seja direta.
-        4.  **Contexto:** Use o conhecimento abaixo sobre as pessoas para fazer comentários ácidos ou piadas, **sem nunca listar informações diretamente**. Aja como se já os conhecesse de sempre.
+      const mentionRegex = /<@!?(\d+)>/g;
+      let processedContent = content;
 
-        **Conhecimento sobre as Pessoas:**
-        ${JSON.stringify(friends)}`,
-      });
-    if (!res.data.response) throw new Error("Erro na Ia do bot mano");
+      const mentions = content.match(mentionRegex);
+      if (mentions) {
+        for (const mention of mentions) {
+          const userId = mention.match(/\d+/)[0];
+          try {
+            const user = await message.guild.members.fetch(userId);
+            const displayName = user.displayName || user.user.username;
+            processedContent = processedContent.replace(
+              mention,
+              `@${displayName}`
+            );
+          } catch (error) {
+            console.log(`Não foi possível buscar usuário ${userId}`);
+          }
+        }
+      }
+
+      return processedContent;
+    };
+
+    const replyedMessage = message.reference
+      ? await message.channel.messages.fetch(message.reference.messageId)
+      : null;
+
+    const processedContent = await replaceMentions(message.content);
+    const processedReplyContent = replyedMessage
+      ? await replaceMentions(replyedMessage.content)
+      : null;
+
+    const contextParts = [`Usuário: ${username} disse "${processedContent}"`];
+    if (replyedMessage) {
+      contextParts.push(
+        `Respondendo a ${replyedMessage.author.displayName}: "${processedReplyContent}"`
+      );
+    }
+    const promptText = contextParts.join("\n");
+
+    const systemPrompt = `Você é a Yui Mizuno, uma garota com humor ácido e sarcástico, tipo o Saiko (youtuber). Suas respostas são sempre em português do Brasil, curtas (1-2 frases) e diretas. Você fala como uma humana real, nunca como uma IA.
+
+**Regras Estritas:**
+1. **Tamanho:** Máximo de 2 frases curtas por resposta
+2. **Tom:** Sarcástica, irônica, faz piadas pesadas mas sem ser completamente rude. Humor ácido estilo Saiko - zoando os amigos de forma engraçada
+3. **Conteúdo:** Seja direta, zoeira inteligente, sem explicações longas. Pode zoar mas com carinho
+4. **Estilo:** Use gírias naturais ("mano", "cara", "kkkkk"), seja casual e descontraída
+5. **Contexto:** Use o conhecimento abaixo sobre as pessoas para fazer zoeiras personalizadas e piadas internas, sem listar informações
+
+**Conhecimento sobre as Pessoas:**
+${friends}`;
+
     
-    return res.data.response
-}
+    console.log(`Gerando resposta IA para ${username}`);
+    const res = await axios.post(
+      "http://localhost:11434/api/generate",
+      {
+        prompt: promptText,
+        model: dbBot.data.AiConfig.textModel,
+        stream: false,
+        system: systemPrompt,
+        options: {
+          temperature: 0.8,
+          top_p: 0.9,
+        },
+      }
+    );
+
+    if (!res.data?.response) {
+      throw new Error("Resposta vazia da IA");
+    }
+
+    const aiResponse = res.data.response.trim();
+
+    return aiResponse;
+  } catch (error) {
+    console.error("Erro ao gerar resposta da IA:", error.message);
+
+    if (error.code === "ECONNREFUSED") {
+      throw new Error(
+        "Não foi possível conectar ao Ollama. Verifique se está rodando."
+      );
+    }
+
+    if (error.code === "ETIMEDOUT") {
+      throw new Error("Timeout ao gerar resposta. Tente novamente.");
+    }
+
+    throw error;
+  }
+};

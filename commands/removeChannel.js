@@ -1,11 +1,14 @@
-import { intializeDbBot, dbBot } from "../database.js";
+import { intializeDbBot, removeChannel, getChannels } from "../database.js";
 await intializeDbBot();
 
 export const name = "remove-channel";
 export async function run(client, message) {
-  if (!dbBot.data.channels.includes(message.channel.id)) {
-    dbBot.data.channels.splice(dbBot.data.channels.indexOf(channelId), 1);
-    await dbBot.write();
-    await message.reply("Canal Removido!");
+  const guild_id = message.guild.id
+  const channel_id = message.channel.id
+  const channels = getChannels(guild_id)
+
+  if (!channels.includes(channel_id)) {
+    removeChannel(guild_id, channel_id);
+    message.reply("Canal removido!");
   }
 }

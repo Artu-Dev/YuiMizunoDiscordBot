@@ -1,137 +1,131 @@
-import { AttachmentBuilder } from "discord.js";
 import { 
-    dbBot, 
-    getOrCreateUser, 
     addUserProperty, 
     unlockAchievement, 
-    resetTalkingToSelf
+    resetTalkingToSelf,
+    setUserProperty,
+    incrementTalkingToSelf,
+    getOrCreateUser
 } from "../database.js";
 
 import { gerar_conquista } from "./image.js";
 
+const isOnlyCaps = (text) => /^[A-Z\s]+$/.test(text);
+const isQuestionMessage = (text) => text.endsWith("?");
+const isNightOwlHour = () => {
+    const hour = new Date().getHours();
+    return hour >= 2 && hour < 6;
+};
+
+const updateUserStats = (userId, updates) => {
+    for (const [prop, value] of Object.entries(updates)) {
+        if (typeof value === "number") {
+            addUserProperty(prop, userId, value);
+        } else if (typeof value === "boolean" && value) {
+            addUserProperty(prop, userId);
+        }
+    }
+};
+
+const giveAchievement = async (message, userId, achievement, authorUserObj) => {
+    const isNew = unlockAchievement(userId, achievement.id);
+    if (!isNew) return;
+
+    const size = achievement.description.length > 22 ? "small" : "normal"
+    const userData = getOrCreateUser(userId, authorUserObj.displayName, message.guild.id);
+    setUserProperty("charLeft", userId, (userData.charLeft || 0) + achievement.charPoints);
+
+    const buffer = await gerar_conquista(authorUserObj, achievement, size);
+
+    await message.channel.send({ files: [{ attachment: buffer, name: "achievement.png" }] });
+    await message.channel.send(
+        `**${authorUserObj.displayName}** ganhou **${achievement.charPoints}** caracteres como recompensa`
+    );
+};
+
+const checkAllAchievements = async (message, userId, stats, authorUserObj) => {
+    for (const ach of Object.values(achievements)) {
+        if (ach.check(stats)) {;
+            await giveAchievement(message, userId, ach, authorUserObj);
+        }
+    }
+};
+
+const handleMentions = async (message, userId) => {
+    if (!message.mentions.users.size) return;
+    
+
+    for (const [mentionedId, mentionedUser] of message.mentions.users) {
+        const mentionedDisplayName =
+            message.guild.members.cache.get(mentionedId)?.displayName ||
+            mentionedUser.username;
+
+            
+        if (!mentionedUser.bot) {
+            addUserProperty("mentions_sent", userId);
+            if (achievements.stalker.check(getOrCreateUser(userId, mentionedDisplayName, message.guild.id))) {
+                await giveAchievement(message, userId, achievements.stalker, message.author, "small");
+            }
+        }
+
+        if (mentionedId !== userId) {
+            addUserProperty("mentions_received", mentionedId);
+            if (achievements.popular.check(getOrCreateUser(mentionedId, mentionedDisplayName, message.guild.id))) {
+                await giveAchievement(message, mentionedId, achievements.popular, mentionedUser);
+            }
+        }
+    }
+};
 
 export const handleAchievements = async (message) => {
     const userId = message.author.id;
-    const content = message.content?.trim() ?? "";
+    const channelId = message.author.id;
+    const content = message.content?.trim() || "";
     const now = Date.now();
-    let stats = getOrCreateUser(userId);
+    const guildId = message.guild?.id;
+    const displayName = message.member?.displayName || message.author.username;
 
-    const hour = new Date().getHours();
-    if (hour >= 2 && hour < 6) {
-        addUserProperty("night_owl_messages", userId);
-    }
+    let stats = getOrCreateUser(userId, displayName, guildId);
+    const updates = {};
 
+    // Night owl
+    if (isNightOwlHour()) updates.night_owl_messages = true;
+
+    // Talking to self
     if (message.channel.lastAuthorId === userId) {
-        addUserProperty("talking_to_self", userId);
+        incrementTalkingToSelf(userId, channelId)
     } else {
-        resetTalkingToSelf("talking_to_self", userId);
+        resetTalkingToSelf(userId, channelId);
     }
 
-    message.channel.lastAuthorId = userId;
-    stats.last_message_time = now;
-    stats = getOrCreateUser(userId);
+    // Stats gerais
+    updates.messages_sent = 1;
+    if (isOnlyCaps(content)) updates.caps_lock_messages = 1;
+    if (isQuestionMessage(content)) updates.question_marks = 1;
 
-    addUserProperty("messages_sent", userId);
+    updateUserStats(userId, updates);
+    stats = getOrCreateUser(userId, displayName, guildId);
 
-    const giveAchievement = async (userId, achievement, authorUserObj, size = "normal") => {
+    await handleMentions(message, userId);
 
-        const isNew = unlockAchievement(userId, achievement.id);
-        if (!isNew) return;
+    // Checar achievements gerais
+    await checkAllAchievements(message, userId, stats, message.author);
 
-        const buffer = await gerar_conquista(authorUserObj, achievement, size);
-        
-        await message.channel.send({
-            files: [{ attachment: buffer, name: "achievement.png" }],
-        });
-        await message.channel.send(`**${authorUserObj.username}** ganhou **${achievement.charPoints}** caracteres como recopensa`)
-    };
+    // Ghost achievement (30 dias sem mensagem)
+    const diffDays = (now - (stats.last_message_time ?? now)) / (1000 * 60 * 60 * 24);
+    if (diffDays >= 30) await giveAchievement(message, userId, achievements.ghost, message.author);
 
-
-    if (message.mentions.users.size > 0) {
-        for (const [mentionedId, mentionedUser] of message.mentions.users) {
-
-            if (!mentionedUser.bot) {
-                addUserProperty("mentions_sent", userId);
-                const updated = getOrCreateUser(userId);
-
-                if (achievements.stalker.check(updated)) {
-                    await giveAchievement(userId, achievements.stalker, message.author, "small");
-                }
-            }
-
-            if(mentionedId !== userId) {
-                addUserProperty("mentions_received", mentionedId);
-                const mentionedStats = getOrCreateUser(mentionedId);
-    
-                if (achievements.popular.check(mentionedStats)) {
-                    await giveAchievement(
-                        mentionedId,
-                        achievements.popular,
-                        mentionedUser
-                    );
-                }
-            }
-        }
-    }
-
-
-    const ONLY_CAPS = /^[A-Z\s]+$/.test(content);
-    if (ONLY_CAPS) {
-        addUserProperty("caps_lock_messages", userId);
-
-        const updated = getOrCreateUser(userId);
-        if (achievements.caps_addict.check(updated)) {
-            await giveAchievement(userId, achievements.caps_addict, message.author, "small");
-        }
-    }
-
-
-    const isQuestion = content.endsWith("?");
-    if (isQuestion) {
-        addUserProperty("question_marks", userId);
-        const updated = getOrCreateUser(userId);
-
-        if (achievements.question_everything.check(updated)) {
-            await giveAchievement(
-                userId,
-                achievements.question_everything,
-                message.author
-            );
-        }
-    }
-
-    if (achievements.monologue.check(stats)) {
-        await giveAchievement(userId, achievements.monologue, message.author, "small");
-    }
-
-    if (achievements.chatterbox.check(stats)) {
-        await giveAchievement(userId, achievements.chatterbox, message.author);
-    }
-
-    if (achievements.night_owl.check(stats)) {
-        await giveAchievement(userId, achievements.night_owl, message.author, "small");
-    }
-
-    if (achievements.loved.check(stats)) {
-        await giveAchievement(userId, achievements.loved, message.author);
-    }
-
-    const diffDays =
-        (now - (stats.last_message_time ?? now)) / (1000 * 60 * 60 * 24);
-
-    if (diffDays >= 30) {
-        await giveAchievement(userId, achievements.ghost, message.author);
-    }
-
+    // Atualizar último horário de mensagem
+    setUserProperty("last_message_time", userId, now);
 };
 
 export const achievements = {
     ghost: {
         id: 1,
         name: "Fantasma",
+        charPoints: 5000,
         emoji: "👻",
         description: "Ficou 30 dias sem mandar mensagem",
-        check: () => false, // implementar depois
+        check: () => false,
     },
 
     monologue: {
@@ -149,7 +143,7 @@ export const achievements = {
         name: "VICIADO EM CAPS LOCK",
         emoji: "📢",
         description: "Mandou 50 mensagens em CAPS LOCK",
-        check: (stats) => stats.caps_lock_messages >= 50,
+        check: (stats) => stats.caps_lock_messages >= 5,
     },
 
     night_owl: {
