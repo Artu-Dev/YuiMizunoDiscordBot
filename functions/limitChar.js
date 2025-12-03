@@ -1,9 +1,8 @@
 import { reduceChars } from "../database.js";
+import { parseMessage } from "./utils.js";
 
 export const limitChar = async (message) => {
-  const text = message.content;
-  const userId = message.author.id;
-  const guildId = message.guild.id
+  const {text, guildId, userId, displayName } = parseMessage(message)
   
   const textSize = text.length;
   const newValue = reduceChars(userId, guildId, textSize);
@@ -14,7 +13,7 @@ export const limitChar = async (message) => {
   }
 
   if (newValue <= 0) {
-    await message.reply(`⚠️!${message.author.displayName} Você não tem mais caracteres!⚠️`);
+    await message.reply(`⚠️!${displayName} Você não tem mais caracteres!⚠️`);
     await message.delete();
     return;
   }

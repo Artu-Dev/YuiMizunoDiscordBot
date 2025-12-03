@@ -4,9 +4,11 @@ import {
   setUserProperty,
   getOrCreateUser,
   dbBot,
+  getLastMessageAuthor,
 } from "../database.js";
 
 import { gerar_conquista } from "./image.js";
+import { parseMessage } from "./utils.js";
 
 const isOnlyCaps = (text) => /^[A-Z\s]+$/.test(text);
 const isQuestionMessage = (text) => text.endsWith("?");
@@ -60,12 +62,12 @@ const checkAllAchievements = async (message, userId, stats, authorUserObj) => {
   }
 };
 
-const handleMentions = async (message, userId) => {
+const handleMentions = async (message) => {
   if (!message.mentions.users.size) return;
+  const {guildId, userId, displayName, mentions} = parseMessage(message)
 
-  const guildId = message.guild.id;
 
-  for (const [mentionedId, mentionedUser] of message.mentions.users) {
+  for (const [mentionedId, mentionedUser] of mentions.users) {
     const mentionedDisplayName =
       message.guild.members.cache.get(mentionedId)?.displayName ||
       mentionedUser.username;
@@ -74,7 +76,7 @@ const handleMentions = async (message, userId) => {
       addUserProperty("mentions_sent", userId, guildId);
       const userStats = getOrCreateUser(
         userId,
-        message.author.displayName,
+        displayName,
         guildId
       );
       if (achievements.stalker.check(userStats)) {
@@ -107,12 +109,8 @@ const handleMentions = async (message, userId) => {
 };
 
 export const handleAchievements = async (message) => {
-  const userId = message.author.id;
-  const channelId = message.channel.id;
-  const content = message.content?.trim() || "";
   const now = Date.now();
-  const guildId = message.guild?.id;
-  const displayName = message.member?.displayName || message.author.username;
+  const {displayName, guildId, text, channelId, userId } = parseMessage(message)
 
   let stats = getOrCreateUser(userId, displayName, guildId);
   const updates = {};
@@ -122,26 +120,26 @@ export const handleAchievements = async (message) => {
 
   // Stats gerais
   updates.messages_sent = 1;
-  if (isOnlyCaps(content)) updates.caps_lock_messages = 1;
-  if (isQuestionMessage(content)) updates.question_marks = 1;
+  if (isOnlyCaps(text)) updates.caps_lock_messages = 1;
+  if (isQuestionMessage(text)) updates.question_marks = 1;
 
   // BOM DIA
-  if (/bom dia/i.test(content)) updates.morning_messages = 1;
+  if (/bom dia/i.test(text)) updates.morning_messages = 1;
 
   // MENSAGEM KKKKKKKKKKK
-  if (/k{10,}/i.test(content)) updates.laught_messages = 1;
+  if (/k{10,}/i.test(text)) updates.laught_messages = 1;
 
   // "PORRA" CONTADOR
-  const porraCount = (content.match(/porra/gi) || []).length;
+  const porraCount = (text.match(/porra/gi) || []).length;
   if (porraCount > 0) updates.porra_count = porraCount;
 
   // PERGUNTA LONGA
-  if (content.endsWith("?") && content.length >= 100)
+  if (text.endsWith("?") && text.length >= 100)
     updates.long_questions = 1;
 
   // CAPS STREAK (controle temporário)
   if (!stats._caps_temp) stats._caps_temp = 0;
-  if (/^[A-Z\s]+$/.test(content)) stats._caps_temp++;
+  if (/^[A-Z\s]+$/.test(text)) stats._caps_temp++;
   else stats._caps_temp = 0;
   setUserProperty("caps_streak", userId, guildId, stats._caps_temp);
 
@@ -150,9 +148,17 @@ export const handleAchievements = async (message) => {
   if (date.getHours() === 3 && date.getMinutes() === 33)
     updates.specific_time_messages = 1;
 
-  // MENSAGENS IGNORADAS (se ninguém respondeu)
-  if (!message.reference) updates.messages_without_reply = 1;
-  else setUserProperty("messages_without_reply", userId, guildId, 0);
+  
+  const lastAuthor = getLastMessageAuthor(channelId, guildId);
+  if (message.reference) {
+    setUserProperty("messages_without_reply", userId, guildId, 0);
+  } 
+  else if (lastAuthor && lastAuthor != userId) {
+    setUserProperty("messages_without_reply", userId, guildId, 1);
+  } 
+  else {
+    updates.messages_without_reply = 1;
+  }
 
   // Se for comando do bot
   if (message.content.startsWith(dbBot.data.configs.prefix))
@@ -161,7 +167,7 @@ export const handleAchievements = async (message) => {
   updateUserStats(userId, guildId, updates);
   stats = getOrCreateUser(userId, displayName, guildId);
 
-  await handleMentions(message, userId);
+  await handleMentions(message);
 
   // Checar achievements gerais
   await checkAllAchievements(message, userId, stats, message.author);
@@ -246,6 +252,7 @@ export const achievements = {
     description: "Enviou 1000 mensagens",
     check: (stats) => stats.messages_sent >= 1000,
   },
+
   first_message: {
     id: 12,
     charPoints: 300,
@@ -267,16 +274,16 @@ export const achievements = {
   ignored: {
     id: 14,
     charPoints: 2000,
-    name: "De Olho",
+    name: "ignorado",
     emoji: "👁️",
-    description: "Enviou 10 mensagens seguidas sem ninguém responder",
+    description: "Mandou 10 mensagens sem respostas",
     check: (stats) => stats.messages_without_reply >= 10,
   },
 
   devil_message: {
     id: 15,
     charPoints: 3000,
-    name: "Mensagem Maligna",
+    name: "DIABO",
     emoji: "😈",
     description: "Enviou uma mensagem exatamente às 03:33",
     check: (stats) => stats.specific_time_messages >= 1,
@@ -294,7 +301,7 @@ export const achievements = {
   chat_legend: {
     id: 17,
     charPoints: 10000,
-    name: "Cara do Chat",
+    name: "Sai do discord",
     emoji: "💎",
     description: "Enviou 10.000 mensagens",
     check: (stats) => stats.messages_sent >= 10000,

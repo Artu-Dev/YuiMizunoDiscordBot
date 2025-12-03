@@ -5,7 +5,7 @@ import { createNewsImage } from "../functions/newsImage.js";
 
 export async function run(client, message) {
   try {
-    const { guildId, channelId } = parseMessage(client, message);
+    const { guildId, channelId } = parseMessage(message, client);
 
     const loadingMsg = await message.channel.send('📰 *Gerando notícia exclusiva...*');
 

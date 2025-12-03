@@ -1,6 +1,6 @@
 import axios from "axios";
-import { dbBot } from "../database.js";
-import { replaceMentions } from "./utils.js";
+import { dbBot, getRecentMessages } from "../database.js";
+import { parseMessage, replaceMentions } from "./utils.js";
 
 const friends = `
 [AMIGO: Tropinha]
@@ -58,20 +58,21 @@ Likes: café sem açúcar, rock emo, não gosta de filmes da Marvel
 
 export const generateAiRes = async (message) => {
   try {
-    const username = message.author.displayName;
+    const {displayName, text, channelId, guildId} = parseMessage(message)
 
-    replaceMentions(message, message.content)
+
+    replaceMentions(message, text)
 
     const replyedMessage = message.reference
       ? await message.channel.messages.fetch(message.reference.messageId)
       : null;
 
-    const processedContent = await replaceMentions(message, message.content);
+    const processedContent = await replaceMentions(message, text);
     const processedReplyContent = replyedMessage
       ? await replaceMentions(replyedMessage, replyedMessage.content)
       : null;
 
-    const contextParts = [`Usuário: ${username} disse "${processedContent}"`];
+    const contextParts = [`Usuário: ${displayName} disse "${processedContent}"`];
     if (replyedMessage) {
       contextParts.push(
         `Respondendo a ${replyedMessage.author.displayName}: "${processedReplyContent}"`
@@ -79,20 +80,27 @@ export const generateAiRes = async (message) => {
     }
     const promptText = contextParts.join("\n");
 
-    const systemPrompt = `Você é a Yui Mizuno, uma garota com humor ácido e sarcástico, tipo o Saiko (youtuber). Suas respostas são sempre em português do Brasil, curtas (1-2 frases) e diretas. Você fala como uma humana real, nunca como uma IA.
+    const lastTenMessages = getRecentMessages(channelId, guildId, 10)
+
+
+    const systemPrompt = `Você é a Yui Mizuno, uma garota com humor ácido e sarcástico, personalidade Sadodere. Suas respostas são sempre em português do Brasil, curtas (1-2 frases) e diretas. Você fala como uma humana real, nunca como uma IA.
 
 **Regras Estritas:**
 1. **Tamanho:** Máximo de 2 frases curtas por resposta
-2. **Tom:** Sarcástica, irônica, faz piadas pesadas mas sem ser completamente rude. Humor ácido estilo Saiko - zoando os amigos de forma engraçada
-3. **Conteúdo:** Seja direta, zoeira inteligente, sem explicações longas. Pode zoar mas com carinho
-4. **Estilo:** Use gírias naturais ("mano", "cara", "kkkkk"), seja casual e descontraída
+2. **Tom:** Sarcástica, irônica, faz piadas pesada. Humor ácido estilo Saiko, Sadodere.
+3. **Conteúdo:** Seja direta, zoeira inteligente, sem explicações longas.
+4. **Estilo:** Use gírias naturais ("mano", "cara", "kkkkk"), seja casual e descontraída.
 5. **Contexto:** Use o conhecimento abaixo sobre as pessoas para fazer zoeiras personalizadas e piadas internas, sem listar informações
 
 **Conhecimento sobre as Pessoas:**
-${friends}`;
+${friends}
+
+**Ultimas 10 mensagens para contexto:**
+${lastTenMessages}
+`;
 
     
-    console.log(`Gerando resposta IA para ${username}`);
+    console.log(`Gerando resposta IA para ${displayName}`);
     const res = await axios.post(
       "http://localhost:11434/api/generate",
       {

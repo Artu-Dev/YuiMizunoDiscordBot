@@ -110,6 +110,7 @@ export const intializeDbBot = async () => {
     `
     CREATE TABLE IF NOT EXISTS message_context (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      userId TEXT,
       channel_id TEXT,
       guild_id TEXT,
       author TEXT,
@@ -149,14 +150,14 @@ export const getOrCreateUser = (userId, displayName, guildId) => {
 /// CONTEXTO DE MENSAGENS
 /// ==============================================
 
-export function saveMessageContext(channelId, guildId, author, content) {
+export function saveMessageContext(channelId, guildId, author, content, userId) {
   if (!content) return;
   db.prepare(
     `
-    INSERT INTO message_context (channel_id, guild_id, author, content, timestamp)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO message_context (channel_id, guild_id, author, content, timestamp, userId)
+    VALUES (?, ?, ?, ?, ?, ?)
   `
-  ).run(channelId, guildId, author, content, new Date().toISOString());
+  ).run(channelId, guildId, author, content, new Date().toISOString(), userId);
 
   db.prepare(
     `
@@ -186,6 +187,18 @@ export function getRecentMessages(channelId, guildId, limit = 20) {
     .all(channelId, guildId, limit);
 
   return rows.map((row) => `${row.author}: ${row.content}`);
+}
+
+export function getLastMessageAuthor(channelId, guildId) {
+  const row = db.prepare(`
+    SELECT id 
+    FROM message_context
+    WHERE channel_id = ? AND guild_id = ?
+    ORDER BY timestamp DESC
+    LIMIT 1
+  `).get(channelId, guildId);
+
+  return row ? row.userId : null;
 }
 
 export function getGuildMembers(guildId, limit = 10) {
@@ -239,7 +252,10 @@ export function unlockAchievement(userId, guildId, achievementKey) {
     let current = {};
     if (row && row.achievements_unlocked) {
       try {
-        current = JSON.parse(row.achievements_unlocked);
+        const parsed = JSON.parse(row.achievements_unlocked);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          current = parsed;
+        }
       } catch (e) {}
     }
 

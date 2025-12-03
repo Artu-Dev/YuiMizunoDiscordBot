@@ -17,7 +17,7 @@ const prefix = dbBot.data.configs.prefix;
 
 const execute = async (message, client) => {
   if (message.author.bot) return;
-  const { guildId, userId, channelId, displayName, text, randomInt, isMentioned } = parseMessage(client, message);
+  const { guildId, userId, channelId, displayName, text, randomInt, mentions } = parseMessage(message, client);
 
   if (text.startsWith(prefix)) {
     const args = text.slice(prefix.length).trim().split(/ +/);
@@ -38,10 +38,10 @@ const execute = async (message, client) => {
   if (!channels.includes(channelId)) return;
 
   getOrCreateUser(userId, displayName, guildId);
-  saveMessageContext(channelId, guildId, displayName, await replaceMentions(message, text));
+  saveMessageContext(channelId, guildId, displayName, await replaceMentions(message, text), userId);
 
 
-  if ((typeof text === "string" && randomInt === 1) || isMentioned) {
+  if ((typeof text === "string" && randomInt === 1) || mentions.isMentioningClient) {
     message.channel.sendTyping();
     const aiResponse = await generateAiRes(message);
     try {

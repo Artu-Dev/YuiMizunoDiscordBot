@@ -7,7 +7,9 @@ const newsTemplates = [
   "ESCÂNDALO: {subject}",
   "EXCLUSIVO: {subject}",
   "BOMBA: {subject}",
+  "FUDEU: {subject}",
   "🚨 BREAKING NEWS: {subject}",
+  "A CASA CAIU: {subject}",
 ];
 
 export async function generateFakeNews(guildId, channelId) {
