@@ -1,7 +1,8 @@
 {
   "configs": {
     "limitChar": 2000,
-    "speakMessage": false,
+    "speakMessage": true,
+    "charLimitEnabled": true,
     "generateMessage": true,
     "maxSavedAudios": 50,
     "prefix": "$"

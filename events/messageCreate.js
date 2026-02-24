@@ -37,11 +37,15 @@ const execute = async (message, client) => {
   const channels = getChannels(guildId);
   if (!channels.includes(channelId)) return;
 
-  getOrCreateUser(userId, displayName, guildId);
+  const userData = getOrCreateUser(userId, displayName, guildId);
+
+  if(!limitChar(message, userData)) return
+
   saveMessageContext(channelId, guildId, displayName, await replaceMentions(message, text), userId);
 
 
-  if ((typeof text === "string" && randomInt === 1) || mentions.isMentioningClient) {
+  if ((typeof text === "string" && randomInt === 1) || mentions.isMentioningClient && Math.random() < 0.5) {
+
     message.channel.sendTyping();
     const aiResponse = await generateAiRes(message);
     try {
@@ -56,8 +60,6 @@ const execute = async (message, client) => {
   }
 
   handleAchievements(message);
-
-  limitChar(message);
 };
 
 export { name, execute };

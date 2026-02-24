@@ -41,6 +41,9 @@ function updateUserDb() {
     bot_commands_used: "INTEGER DEFAULT 0",
     caps_streak: "INTEGER DEFAULT 0",
     achievements_unlocked: "TEXT DEFAULT '{}'",
+    penalities: "TEXT DEFAULT '[]'",
+    lastRoubo: "TEXT",
+    penalityWord: "TEXT DEFAULT ''",
   };
 
   // Obtém as colunas atuais do BD
@@ -89,6 +92,9 @@ export const intializeDbBot = async () => {
       bot_commands_used INTEGER DEFAULT 0,
       caps_streak INTEGER DEFAULT 0,
       achievements_unlocked TEXT DEFAULT '{}',
+      penalities TEXT DEFAULT '[]',
+      lastRoubo TEXT,
+      penalityWord TEXT DEFAULT '',
 
       PRIMARY KEY (id, guild_id)
   )
@@ -351,3 +357,16 @@ export const reduceChars = (userId, guildId, amount) => {
 
   return newValue;
 };
+
+export const addChars = (userId, guildId, amount) => {
+  db.prepare(
+    `UPDATE users SET charLeft = charLeft + ? WHERE id = ? AND guild_id = ?`
+  ).run(amount, userId, guildId);
+}
+
+export const getRandomUserId = (guildId, excludeUserId) => {
+  const row = db
+    .prepare("SELECT id FROM users WHERE guild_id = ? AND id != ? ORDER BY RANDOM() LIMIT 1")
+    .get(guildId, excludeUserId);
+  return row ? row.id : null;
+}
