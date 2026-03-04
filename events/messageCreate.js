@@ -63,7 +63,7 @@ const execute = async (message, client) => {
   saveMessageContext(channelId, guildId, displayName, await replaceMentions(message, text), userId);
 
   const resendchance = 0.05;
-  const replyChance = 0.15; 
+  const replyChance = 0.1; 
   if (Math.random() <= resendchance) {
     await randomResend(message);
   } else if ((mentions.isMentioningClient && Math.random() < 0.5) || (Math.random() < replyChance)) {
