@@ -8,7 +8,7 @@ export async function run(client, message) {
     return await message.reply("Nenhum usuário registrado neste servidor ainda.");
   }
 
-  const sortedUsers = usersData.sort((a, b) => b.charLeft - a.charLeft);
+  const sortedUsers = usersData.sort((a, b) => a.charLeft - b.charLeft);
 
   const top10 = sortedUsers.slice(0, 10);
 
