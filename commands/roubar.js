@@ -12,27 +12,24 @@ export async function run(client, message) {
   const victimChars = victimData.charLeft;
   const stolenAmount = Math.floor(victimChars * (Math.random() * 0.15 + 0.05));
 
-  const now = Date.now();
+  const now = new Date();
+  const today = `${now.getDate()}/${now.getMonth() + 1}/${now.getFullYear()}`;
+
   const user = getOrCreateUser(userId, displayName, guildId);
-  const lastRoubo = Number(user.lastRoubo) || 0;
+  const lastRouboDate = user.lastRoubo;
   const timesRoubou = Number(user.timesRoubou) || 0;
 
-  const twenyFourHour = 24 * 60 * 60 * 1000;
-
-  if (now - lastRoubo > twenyFourHour) {
+  if (lastRouboDate != today) {
     setUserProperty("timesRoubou", userId, guildId, 1); 
-    setUserProperty("lastRoubo", userId, guildId, now.toString());
+    setUserProperty("lastRoubo", userId, guildId, today);
   } 
   else if (timesRoubou < 3) {
     addUserPropertyByAmount("timesRoubou", userId, guildId, 1);
-    setUserProperty("lastRoubo", userId, guildId, now.toString());
   }
   else {
     message.reply("Tu já roubou alguém 3x nas últimas 24 horas seu maldito!");
     return;
   }
-
-  setUserProperty("lastRoubo", userId, guildId, now.toString());
 
   if (randomChance < 0.38) {
     addChars(userId, guildId, stolenAmount);
